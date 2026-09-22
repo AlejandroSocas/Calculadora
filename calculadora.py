@@ -1,74 +1,136 @@
 import tkinter as tk
+import os
+import sys
 
-def saludar():
-  print("Botón pulsado")
+"""
+Generar ejecutable:
+ - Windows: pyinstaller --onefile --windowed --add-data "icono.png;." calculadora.py
+ - Linux: pyinstaller --onefile --windowed --add-data "icono.png:." calculadora.py
+"""
+
+def resolver_ruta(ruta_relativa):
+  """Obtiene la ruta absoluta al recurso, funciona para dev y para PyInstaller paar empaquetar el porgrama en un ejecutable"""
+  if hasattr(sys, '_MEIPASS'):
+    # PyInstaller crea una carpeta temporal y guarda la ruta en _MEIPASS
+    return os.path.join(sys._MEIPASS, ruta_relativa)
+  return os.path.join(os.path.abspath("."), ruta_relativa)
 
 class UI(tk.Frame):
 
   def __init__(self, parent=None):
+    """Constructor de la calculadora"""
     tk.Frame.__init__(self, parent)
     self.parent = parent
+    self.teclas = [
+      ["(", ")", "%", "<-"],
+      ['7', '8', '9', '/'],
+      ['4', '5', '6', '*'],
+      ['1', '2', '3', '-'],
+      ['0', ',', '=', '+']
+    ]
     self.init_ui()
 
   def init_ui(self):
     """Aquí van los widgets"""
     self.parent.title("Calculadora")
-    self.pantalla = tk.Entry(self.parent, width=13)
-    botonok = tk.Button(self.parent, text="ok", command=self.leer_pantalla)
-    boton7 = tk.Button(self.parent, text="7", command=lambda: self.imprimir_pantalla("7"))
-    boton8 = tk.Button(self.parent, text="8", command=lambda: self.imprimir_pantalla("8"))
-    boton9 = tk.Button(self.parent, text="9", command=lambda: self.imprimir_pantalla("9"))
-    boton4 = tk.Button(self.parent, text="4", command=lambda: self.imprimir_pantalla("4"))
-    boton5 = tk.Button(self.parent, text="5", command=lambda: self.imprimir_pantalla("5"))
-    boton6 = tk.Button(self.parent, text="6", command=lambda: self.imprimir_pantalla("6"))
-    boton1 = tk.Button(self.parent, text="1", command=lambda: self.imprimir_pantalla("1"))
-    boton2 = tk.Button(self.parent, text="2", command=lambda: self.imprimir_pantalla("2"))
-    boton3 = tk.Button(self.parent, text="3", command=lambda: self.imprimir_pantalla("3"))
-    boton0 = tk.Button(self.parent, text="0", command=lambda: self.imprimir_pantalla("0"))
-    botoncoma = tk.Button(self.parent, text=",", command=lambda: self.imprimir_pantalla(","))
-    botondiv = tk.Button(self.parent, text="/", command=lambda: self.imprimir_pantalla("/"))
-    botonmult = tk.Button(self.parent, text="*", command=lambda: self.imprimir_pantalla("*"))
-    botonrest = tk.Button(self.parent, text="-", command=lambda: self.imprimir_pantalla("-"))
-    botonsum = tk.Button(self.parent, text="+", command=lambda: self.imprimir_pantalla("+"))
-    botonigual = tk.Button(self.parent, text="=", command=self.leer_pantalla)
+    self.parent.minsize(200, 400) # Bloquea el tamaño mínimo
 
-    self.pantalla.grid(row=0, column=0, columnspan=4)
-    botonok.grid(row=0, column=5)
-    boton7.grid(row=1, column=0)
-    boton8.grid(row=1, column=1)
-    boton9.grid(row=1, column=2)
-    botondiv.grid(row=1, column=3)
-    boton4.grid(row=2, column=0)
-    boton5.grid(row=2, column=1)
-    boton6.grid(row=2, column=2)
-    botonmult.grid(row=2, column=3)
-    boton1.grid(row=3, column=0)
-    boton2.grid(row=3, column=1)
-    boton3.grid(row=3, column=2)
-    botonrest.grid(row=3, column=3)
-    boton0.grid(row=4, column=0)
-    botoncoma.grid(row=4, column=1)
-    botonigual.grid(row=4, column=2)
-    botonsum.grid(row=4, column=3)
+    # Establece el icono de la ventana
+    icono = tk.PhotoImage(file=resolver_ruta("icono.png")) 
+    self.parent.iconphoto(False, icono) 
 
-  def leer_pantalla(self):
+    # Configuración de la pantalla
+    self.pantalla = tk.Entry(self.parent, bd=1, font=("Arial", 34), relief="solid")
+    self.pantalla.pack(padx=30, pady=30)
+    self.pantalla.grid(row=0, column=0, columnspan=5, sticky="nsew", padx=10, pady=15, ipady=10)
+    # Configuramos la pantalla para que sea solo lectura y que no se pueda escribir con el teclado letras. Cuando se quiera escribir hay que cambiar state a "normal"
+    self.pantalla.config(state="readonly")
+
+    #Asignamos las funciones que tienen los botones
+    for i, fila in enumerate(self.teclas, start=1):
+      for j, funcion in enumerate(fila):
+        if funcion == '=':
+          boton = tk.Button(self.parent, text=funcion, font=("Arial", 24), padx=10, pady=10, command=self.calcular)
+        elif funcion == "<-":
+          boton = tk.Button(self.parent, text=funcion, font=("Arial", 24), padx=10, pady=10, command=self.borrar_caracter)
+        else:
+          boton = tk.Button(self.parent, text=funcion, font=("Arial", 24), padx=10, pady=10, command=lambda f=funcion: self.imprimir_pantalla(f))
+        boton.grid(row=i, column=j, sticky="nsew")
+
+    # Con esto las columnas se ajustan al tamaño de la ventana
+    for col in range(4):
+      self.parent.columnconfigure(col, weight=1)
+
+    # Con esto las filas se ajustan al tamaño de la ventana
+    self.parent.rowconfigure(0, weight=2)
+    for row in range(1, 6):
+      self.parent.rowconfigure(row, weight=1)
+
+    # Escucha las teclas que se pulsan
+    self.parent.bind("<Key>", self.tecla_pulsada)
+    
+
+  def calcular(self):
+    """Función que calcula el resultado de la operación que hay en pantalla y muestra el resultado en la misma"""
     contenido = self.pantalla.get()
+    contenido = contenido.replace(",",".")
     resultado = None
-    for i, caracter in enumerate(contenido):
-      match caracter:
-        case "+":
-          resultado = int(contenido[0:i]) + int(contenido[i + 1:])
+    try:
+      resultado = eval(contenido) # Hace el cálculo entero del string
+    except ZeroDivisionError:
+      self.borrar_pantalla()
+      self.imprimir_pantalla("Error")
+      self.parent.after(1000, self.borrar_pantalla)
+      return
+    except SyntaxError:
+      self.borrar_pantalla()
+      self.imprimir_pantalla("Error Sintaxis")
+      self.parent.after(1000, self.borrar_pantalla)
 
-    self.pantalla.insert(0, resultado)    
+    if resultado is None:
+      return
+
+    self.borrar_pantalla()
+    if resultado.is_integer():
+      self.imprimir_pantalla(int(resultado))
+    else:
+      resultado = str(resultado)
+      self.imprimir_pantalla(resultado.replace('.',','))
 
 
   def imprimir_pantalla(self, boton):
-    self.pantalla.insert(0, boton)
+    """Imprime un string en la pantalla"""
+    self.pantalla.config(state="normal")
+    self.pantalla.insert(tk.END, boton)
+    self.pantalla.config(state="readonly")
+
+  def borrar_pantalla(self):
+    """Borra la pantalla completa"""
+    self.pantalla.config(state="normal")
+    self.pantalla.delete(0, tk.END)
+    self.pantalla.config(state="readonly")
+
+  def borrar_caracter(self):
+    """Borra el último caracter de la pantalla"""
+    longitud_borrado = len(self.pantalla.get()) - 1
+    self.pantalla.config(state="normal")
+    self.pantalla.delete(longitud_borrado, tk.END)
+    self.pantalla.config(state="readonly")
+
+  def tecla_pulsada(self, evento):
+    """Asigna funciones cuando ciertas teclas son pulsadas"""
+    # print(f"Has pulsado: {evento.char}, {evento.keysym}")
+    if evento.char in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '-', '*', '/', ',', '(', ')', '%']:
+      self.imprimir_pantalla(evento.char)
+    elif evento.keysym == "BackSpace":
+      self.borrar_caracter()
+    elif evento.keysym == "Return":
+      self.calcular()
     
+
 
 if __name__ == "__main__":
   ROOT = tk.Tk()
-  ROOT.geometry("800x600")
+  ROOT.geometry("400x600")
   APP = UI(parent=ROOT)
   APP.mainloop()
-  ROOT.destroy()
