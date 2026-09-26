@@ -119,7 +119,7 @@ class UI(tk.Frame):
 
   def tecla_pulsada(self, evento):
     """Asigna funciones cuando ciertas teclas son pulsadas"""
-    # print(f"Has pulsado: {evento.char}, {evento.keysym}")
+    print(f"Has pulsado: {evento.char}, {evento.keysym}")
     if evento.char in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '-', '*', '/', ',', '(', ')', '%']:
       self.imprimir_pantalla(evento.char)
     elif evento.keysym == "BackSpace":
